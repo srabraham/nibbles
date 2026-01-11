@@ -24,6 +24,26 @@ data Impl = Impl { implType::VT
                  } deriving (Eq, Show)
 noArgsUsed = Impl (error "undefined impl type") (hsAtom "(error \"undefined impl code\")") (Set.singleton 0) Nothing UnusedArg
 
+-- | Dual implementation: contains both compilation output (Impl) and interpreter function.
+-- The interpreter function type 'f' is kept polymorphic to avoid circular imports.
+-- In practice, f will be InterpFn from Interpret.hs.
+data DualImpl f = DualImpl
+    { diImpl :: Impl       -- ^ Haskell code for compilation mode
+    , diInterp :: f        -- ^ Interpreter function for interpretation mode
+    }
+
+-- | Create a DualImpl from an Impl and interpreter function
+mkDualImpl :: Impl -> f -> DualImpl f
+mkDualImpl = DualImpl
+
+-- | Extract just the Impl (for compilation mode)
+getDualImplCode :: DualImpl f -> Impl
+getDualImplCode = diImpl
+
+-- | Extract just the interpreter function (for interpretation mode)
+getDualImplInterp :: DualImpl f -> f
+getDualImplInterp = diInterp
+
 data ArgKind = LambdaArg | LetArg { argKindDef::HsCode } deriving (Show, Eq)
 data Args = Args { argsImpls::[Impl], argsKind::ArgKind, argsFrom::String } deriving Show
 

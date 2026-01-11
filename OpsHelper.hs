@@ -122,6 +122,13 @@ instance ToLitSpec String where toLitSpec s = [s]
 infixr 1 ~>
 a~>b = (b,a)
 
+-- | Dual-mode operator for operations that support both compilation and interpretation.
+-- Usage: (interpFn, codeStr) ~>> typeFn
+-- This pairs a runtime interpreter function with the Haskell code string.
+infixr 1 ~>>
+(~>>) :: (a, String) -> b -> (b, String, a)
+(interpFn, code) ~>> typeFn = (typeFn, code, interpFn)
+
 -- 16 makes it so that parsing bin will never try it
 convertNullNib (isPriority, lit, nib, op) = (isPriority, lit, if null nib
       then [16, error $ "attempt to convert "++(concat lit)++" to bin (it is only for literate mode)"]

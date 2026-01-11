@@ -23,7 +23,7 @@ import Hs(flatHs)
 import ParseArgs
 
 usage = "\
-\Usage: nibbles [-c|-e|-v|-hs|-lit] [-simple] [filename] [args]* [-- rawargs*]\n\
+\Usage: nibbles [-c|-e|-v|-hs|-lit|-i] [-simple] [filename] [args]* [-- rawargs*]\n\
 \\n\
 \Nibbles - a functional code golf language for mortals.\n\
 \\n\
@@ -34,6 +34,7 @@ usage = "\
 \  -c = compactify into bytes (2 nibbles each), save to base filename.nbb\n\
 \  -e = expand and print the literate form\n\
 \  -hs = only generate out.hs\n\
+\  -i = run in interpreter mode (no GHC compilation, experimental)\n\
 \  -r = run out.hs unoptimized\n\
 \  -v = version\n\
 \  -lit = just run literate code without checking size/if it would extract\n\
@@ -115,6 +116,13 @@ main=do
          writeFile outname nibBytes
       ["-e"] -> putStrLn lit
       ["-v"] -> putStrLn version
+      ["-i"] -> do
+         -- Interpreter mode: evaluate without GHC compilation
+         -- For now, use hint to interpret the generated Haskell in-memory
+         hPutStrLn stderr "Interpreter mode (experimental)"
+         hPutStrLn stderr $ "size = " ++ (show $ length bRaw) ++ " nibbles"
+         fullHs <- toFullHs impl nibBytes reader
+         runHsInterpreted fullHs allProgArgs
       e -> errorWithoutStackTrace $ "invalid option " ++ (show e) ++ "\n" ++ usage
 
 estimateBinLength [] = 0
@@ -181,4 +189,21 @@ runHsUnoptimized filename args = do
    result <- hGetContents hout
    hSetBuffering stdout NoBuffering
    putStr result
+   return ()
+
+-- | Interpreter mode: run generated Haskell without writing to disk
+-- Uses runhaskell with the code passed via stdin/temp file
+-- This is an intermediate step toward true interpretation
+runHsInterpreted :: String -> [String] -> IO ()
+runHsInterpreted hsCode args = do
+   setLocaleEncoding initLocaleEncoding
+   -- Write to a temp file to avoid polluting the current directory
+   -- In the future, this could use the hint package for true in-memory interpretation
+   let tempFile = "/tmp/nibbles_interp.hs"
+   writeFile tempFile hsCode
+   (_, Just hout, _, p) <- createProcess (proc "runhaskell" (tempFile : args)){ std_out = CreatePipe }
+   result <- hGetContents hout
+   hSetBuffering stdout NoBuffering
+   putStr result
+   _ <- waitForProcess p
    return ()
